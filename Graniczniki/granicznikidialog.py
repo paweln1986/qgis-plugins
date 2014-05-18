@@ -32,16 +32,29 @@ class GranicznikiDialog(QtGui.QDialog, Ui_Graniczniki):
         self.setupUi(self)
         self.loadButton.clicked.connect(self.buttonClicked)
 
-    def buttonClicked(self):
-        uri = QgsDataSourceURI()
-        uri.setConnection("localhost", "5432", "wroclaw1", "postgres", "postgres")
-        uri.setDataSource("public", "w_dzialki", "dzialki_geom")
-        vlayer = QgsVectorLayer(uri.uri(), "layer_name_you_like", "postgres")
-        iter = vlayer.getFeatures()
-        text = ""
-        self.textEdit.setText(text)
-        caps = vlayer.dataProvider().capabilities()
-        feat = QgsFeature()
-        feat.setGeometry(QgsGeometry.fromRect(QgsRectangle(6419304,5663276, 6421448, 5664155)))
-        (res, outFeats) = vlayer.dataProvider().addFeatures( [ feat ] )
 
+    def parsePoints(self, plainText):
+        points = []
+        splittedText = plainText.split("\n")
+        for s in splittedText:
+            p = s.split()
+            qgis_point = QgsPoint(float(p[2]), float(p[1]))
+            points.append(qgis_point)
+        return points
+
+
+    def addPointToLayer(self, pr, point):
+        seg = QgsFeature()
+
+        seg.setGeometry(QgsGeometry.fromPoint(point))
+        pr.addFeatures([seg])
+
+    def buttonClicked(self):
+        plainText = self.textEdit.toPlainText()
+        points = self.parsePoints(plainText)
+        v_layer = QgsVectorLayer("POINT", "line", "memory")
+        pr = v_layer.dataProvider()
+        for point in points:
+            self.addPointToLayer(pr, point)
+        v_layer.updateExtents()
+        QgsMapLayerRegistry.instance().addMapLayers([v_layer])
