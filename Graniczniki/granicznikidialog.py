@@ -31,7 +31,7 @@ class GranicznikiDialog(QtGui.QDialog, Ui_Graniczniki):
         QtGui.QDialog.__init__(self)
         self.setupUi(self)
         self.loadButton.clicked.connect(self.buttonClicked)
-
+        self.saveButton.clicked.connect(self.savePoints)
 
     def parsePoints(self, plainText):
         points = []
@@ -45,16 +45,38 @@ class GranicznikiDialog(QtGui.QDialog, Ui_Graniczniki):
 
     def addPointToLayer(self, pr, point):
         seg = QgsFeature()
-
+        seg.initAttributes(4);
+        seg.setAttribute(0, "nextval('w_d202_202022_tekst_id_seq'::regclass)")
+        seg.setAttribute(1, 1959)
+        seg.setAttribute(2, 0)
+        seg.setAttribute(3, 14173631)
         seg.setGeometry(QgsGeometry.fromPoint(point))
         pr.addFeatures([seg])
 
-    def buttonClicked(self):
-        plainText = self.textEdit.toPlainText()
-        points = self.parsePoints(plainText)
-        v_layer = QgsVectorLayer("POINT", "line", "memory")
-        pr = v_layer.dataProvider()
+
+    def prepareLayerInMemory(self, points):
+        self.v_layer = QgsVectorLayer("POINT", "line", "memory")
+        pr = self.v_layer.dataProvider()
         for point in points:
             self.addPointToLayer(pr, point)
-        v_layer.updateExtents()
-        QgsMapLayerRegistry.instance().addMapLayers([v_layer])
+        self.v_layer.updateExtents()
+        QgsMapLayerRegistry.instance().addMapLayers([self.v_layer])
+
+    def savePoints(self):
+        uri = QgsDataSourceURI()
+        uri.setConnection("localhost", "5432", "wroclaw1", "postgres", "postgres")
+        uri.setDataSource("public", "w_d202_202022_tekst", "d202_202022_tekst_geom")
+        vlayer = QgsVectorLayer(uri.uri(), "layer_name_you_like", "postgres")
+        pr = vlayer.dataProvider()
+        vlayer.startEditing()
+        for point in self.points:
+            self.addPointToLayer(pr, point)
+        vlayer.updateExtents()
+        QgsMapLayerRegistry.instance().addMapLayers([vlayer])
+        QgsMapLayerRegistry.instance().removeMapLayer(self.v_layer.id())
+
+    def buttonClicked(self):
+        plainText = self.textEdit.toPlainText()
+        self.points = self.parsePoints(plainText)
+        self.prepareLayerInMemory(self.points)
+        self.saveButton.setEnabled(True)
